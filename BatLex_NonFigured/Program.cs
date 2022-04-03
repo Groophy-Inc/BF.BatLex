@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
+using System.Diagnostics;
 
 namespace BatLex_NonFigured
 {
@@ -18,6 +19,11 @@ namespace BatLex_NonFigured
 
         static void Main(string[] args)
         {
+            //line-syntax, si:l, type, extra, parameters[]
+
+            //echo hello world
+            //1-echo, 0:4, 0, 0, null, [hello, 5:5, 4, null; world, 11:5, 4, null]
+
             string[] lines = File.ReadAllLines(args[0]);
 
             CheckLabels(lines);
@@ -31,6 +37,8 @@ namespace BatLex_NonFigured
                 lines[i] = fixline(lines[i]);
 
                 string[] parts = lines[i].Split(' ');
+
+                bool breakline = false;
 
                 for (int i2 = 0;i2 < parts.Length;i2++)
                 {
@@ -90,17 +98,38 @@ namespace BatLex_NonFigured
 
                         }// find syntax end
 
+                        //line-syntax, si:l, type, parameters[]
                         if (syntaxfound)
                         {
-                            Print(syntax+" ", ConsoleColor.Green);
+                            Print(syntax, ConsoleColor.Green);
 
                             if (syntax == "rem" || syntax == "::")
                             {
                                 for (int p = i2+1; p < parts.Length; p++)
                                 {
-                                    Print(parts[p] + " ", ConsoleColor.DarkGreen);
+                                    Print(" "+parts[p], ConsoleColor.DarkGreen);
                                 }
+                                Result.Append(syntax+", "+"0:"+syntax.Length+", 0, comment");
+                                breakline = true;
                                 break;
+                            }
+                            else if (syntax == "label")
+                            {
+                                bool fo = false;
+                                for (int l = 0; l < labels.Count; l++)
+                                {
+                                    if (i == labels[l].Line)
+                                    {
+                                        Print("("+labels[l].Name+")" , ConsoleColor.Cyan);
+                                        fo = true;
+                                        Result.Append(syntax + ", " + "0:" + syntax.Length + ", 0, EL:0'LN:"+labels[l].Name);
+                                        break;
+                                    }
+                                }
+                                if (!fo)
+                                {
+                                    Result.Append(syntax + ", " + "0:" + syntax.Length + ", 0, EL:1'LN:"+parts[i2].Substring(1));
+                                }
                             }
                         }
                         else
@@ -114,16 +143,36 @@ namespace BatLex_NonFigured
                     {
                         if (parts[i2].StartsWith("/"))
                         {
-                            Print(parts[i2] + " ", ConsoleColor.Yellow);
+                            Print(" "+parts[i2], ConsoleColor.Yellow);
                         }
                         else
                         {
-                            Print(parts[i2] + " ", ConsoleColor.White);
+                            Print(" "+parts[i2], ConsoleColor.White);
                         }
                     }
+                    if (breakline) break;
                 }
                 nl();
+                Result.Append("\r\n");
             }
+
+            File.WriteAllText("res.txt", Result.ToString());
+
+            StringBuilder bat = new StringBuilder();
+            string[] ln = Result.ToString().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            bat.Append("@echo off\r\n");
+            bat.Append("title " + Path.GetFileName(args[0])+"\r\n");
+            for (int i = 0; i < ln.Length;i++ )
+            {
+                if (!string.IsNullOrEmpty(ln[i]))
+                {
+                    bat.Append("Echo " + ln[i] + "\r\n");
+                }
+            }
+            bat.Append("Pause");
+            File.WriteAllText("res.bat", bat.ToString());
+            Process.Start("res.bat");
+
             Console.ReadKey();
         }
 
